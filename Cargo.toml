@@ -1,0 +1,12 @@
+[package]
+name = "snake-rs"
+version = "0.1.0"
+authors = ["Denis Stepanov <Denis.Stepanov@gmail.com>"]
+
+[dependencies.sdl2]
+version = "0.27.3"
+default-features = false
+features = ["ttf"]
+
+[dependencies]
+rand = "0.3"
