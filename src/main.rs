@@ -161,58 +161,49 @@ impl SnakeGame {
     }
 }
 
-struct SDLRenderer<'a> {
-    renderer: &'a mut Renderer<'a>,
-    font: &'a Font<'a>
+struct SDLRenderer<'a, 'b: 'a> {
+    renderer: &'a mut Renderer<'b>,
+    font: &'a Font<'b>
 }
 
-impl<'a> SDLRenderer<'a> {
-    fn new<'x>(renderer: &'x mut Renderer<'x>, font: &'x Font<'x>) -> SDLRenderer<'x> {
-        SDLRenderer {
-            renderer: renderer,
-            font: font
-        }
-    }
+impl<'a, 'b> SDLRenderer<'a, 'b> {
 
-    fn render(&mut self, snakeGame: &SnakeGame) {
-        self.render_text(snakeGame);
-
+    fn render(&mut self, snake_game: &SnakeGame) {
         self.renderer.set_draw_color(BACKGROUND_COLOR);
-        self.renderer.fill_rect(snakeGame.area).unwrap();
+        self.renderer.fill_rect(snake_game.area).unwrap();
 
-        if snakeGame.state == State::GAMEOVER {
-            return
+        self.render_text(snake_game);
+
+        if snake_game.state == State::PLAY {
+            for point in &snake_game.body {
+                self.renderer.set_draw_color(SNAKE_COLOR);
+                self.renderer.fill_rect(SDLRenderer::rect_at(point.x, point.y)).unwrap();
+            }
+
+            self.renderer.set_draw_color(FOOD_COLOR);
+            self.renderer.fill_rect(SDLRenderer::rect_at(snake_game.food.x, snake_game.food.y)).unwrap();
         }
-
-        for point in &snakeGame.body {
-            self.renderer.set_draw_color(SNAKE_COLOR);
-            self.renderer.fill_rect(SDLRenderer::rect_at(point.x, point.y)).unwrap();
-        }
-
-        self.renderer.set_draw_color(FOOD_COLOR);
-        self.renderer.fill_rect(SDLRenderer::rect_at(snakeGame.food.x, snakeGame.food.y)).unwrap();
-
         self.renderer.present();
     }
 
-    fn render_text(&mut self, snakeGame: &SnakeGame) {
-        if snakeGame.state == State::GAMEOVER {
+    fn render_text(&mut self, snake_game: &SnakeGame) {
+        if snake_game.state == State::GAMEOVER {
             self.render_text_at("push 'N' for new game", GAMEOVER_TEXT_COLOR, 140, 180);
             self.render_text_at("GAMEOVER", GAMEOVER_TEXT_COLOR, 140, 140);
-            self.render_text_at(format!("your score: {}", snakeGame.score).as_ref(), GAMEOVER_TEXT_COLOR, 140, 220);
+            self.render_text_at(format!("your score: {}", snake_game.score).as_ref(), GAMEOVER_TEXT_COLOR, 140, 220);
         } else {
-            self.render_text_align_right(format!("SCORE: {}", snakeGame.score).as_ref(), Color::RGBA(255, 255, 255, 0), 10, 10, snakeGame);
-            if snakeGame.show_fps {
-                self.render_text_at(format!("FPS: {}", snakeGame.fps).as_ref(), Color::RGB(255, 255, 255), 10, 10);
+            self.render_text_align_right(format!("SCORE: {}", snake_game.score).as_ref(), Color::RGBA(255, 255, 255, 0), 10, 10, snake_game);
+            if snake_game.show_fps {
+                self.render_text_at(format!("FPS: {}", snake_game.fps).as_ref(), Color::RGB(255, 255, 255), 10, 10);
             }
         }
     }
 
-    fn render_text_align_right(&mut self, text: &str, color: Color, x: i32, y: i32, snakeGame: &SnakeGame) {
+    fn render_text_align_right(&mut self, text: &str, color: Color, x: i32, y: i32, snake_game: &SnakeGame) {
         let surface = self.font.render(text).blended(color).unwrap();
         let mut texture = self.renderer.create_texture_from_surface(&surface).unwrap();
         let TextureQuery { width, height, .. } = texture.query();
-        self.renderer.copy(&mut texture, None, Some(Rect::new(snakeGame.area.width() as i32 - x - width as i32, y, width, height))).unwrap();
+        self.renderer.copy(&mut texture, None, Some(Rect::new(snake_game.area.width() as i32 - x - width as i32, y, width, height))).unwrap();
     }
 
     fn render_text_at(&mut self, text: &str, color: Color, x: i32, y: i32) {
@@ -243,7 +234,10 @@ fn main() {
     let font = ttf_context.load_font("./font.TTF", 30).unwrap();
     let mut sdl_renderer = window.renderer().build().unwrap();
 
-    let mut game_renderer = SDLRenderer::new(&mut sdl_renderer, &font);
+    let mut game_renderer = SDLRenderer {
+        renderer: &mut sdl_renderer,
+        font: &font
+    };
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
