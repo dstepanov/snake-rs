@@ -6,7 +6,6 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
 use sdl2::render::Renderer;
-use std::time::Duration;
 use sdl2::ttf::Font;
 use sdl2::render::TextureQuery;
 
@@ -18,6 +17,7 @@ static CELL_SIZE: u32 = 15;
 static BACKGROUND_COLOR: Color = Color::RGB(245, 40, 5);
 static FOOD_COLOR: Color = Color::RGB(0, 100, 200);
 static SNAKE_COLOR: Color = Color::RGB(100, 200, 0);
+static GAMEOVER_TEXT_COLOR: Color = Color::RGB(255, 255, 50);
 
 #[derive(Clone, Debug, PartialEq)]
 enum State {
@@ -32,7 +32,6 @@ enum Direction {
     UP,
     DOWN
 }
-
 
 impl Direction {
     fn opposite(&self) -> Direction {
@@ -52,14 +51,12 @@ struct Point {
 }
 
 impl Point {
-
     fn new(x: u32, y: u32) -> Point {
         Point {
             x: x,
             y: y
         }
     }
-
 }
 
 struct SnakeGame {
@@ -77,7 +74,6 @@ struct SnakeGame {
 }
 
 impl SnakeGame {
-
     fn new(width: u32, height: u32, initial_snake_length: u32, time: u32) -> SnakeGame {
         let mut snake = SnakeGame {
             area: Rect::new(0, 0, width, height),
@@ -89,93 +85,38 @@ impl SnakeGame {
             body: Vec::new(),
             fps: 0,
             show_fps: false,
-            food: Point { x:0, y:0 },
-            food_generated_time: 0
+            food: Point { x: 0, y: 0 },
+            food_generated_time: time
         };
-        let x_center = snake.x_cells_max / 2;
-        let y_center = snake.y_cells_max / 2;
-        for i in 0..initial_snake_length {
-            snake.body.push(Point::new(x_center + i, y_center));
-        }
-        snake.create_food(time);
+
+        snake.create_snake(initial_snake_length);
+        snake.food = snake.create_food();
         snake
     }
 
-    fn create_food(&mut self, time: u32) {
-        'findEmptyCell: loop {
+    fn create_snake(&mut self, initial_snake_length: u32) {
+        let x_center = self.x_cells_max / 2;
+        let y_center = self.y_cells_max / 2;
+        for i in 0..initial_snake_length {
+            self.body.push(Point::new(x_center + i, y_center));
+        }
+    }
 
-            let x = rand::random::<u32>() % self.x_cells_max;
-            let y = rand::random::<u32>() % self.y_cells_max;
+    fn create_food(&self) -> Point {
+        'findEmptyCell: loop {
+            let food = Point {
+                x: rand::random::<u32>() % self.x_cells_max,
+                y: rand::random::<u32>() % self.y_cells_max
+            };
 
             for item in &self.body {
-                if x == item.x && y == item.y {
+                if *item == food {
                     continue 'findEmptyCell;
                 }
             }
 
-            self.food = Point { x: x, y:y };
-            self.food_generated_time = time;
-
-            break;
-         }
-    }
-
-    fn render(&self, renderer: &mut Renderer) {
-        renderer.set_draw_color(BACKGROUND_COLOR);
-        renderer.fill_rect(self.area).unwrap();
-
-        if self.state == State::GAMEOVER {
-            return
+            return food;
         }
-
-        for point in &self.body {
-            renderer.set_draw_color(SNAKE_COLOR);
-            renderer.fill_rect(self.rect_at(point.x, point.y)).unwrap();
-        }
-
-        renderer.set_draw_color(FOOD_COLOR);
-        renderer.fill_rect(self.rect_at(self.food.x, self.food.y)).unwrap();
-    }
-
-    fn render_text(&self, renderer: &mut Renderer, font: &Font) {
-
-        if self.state == State::GAMEOVER {
-            let TEXT_COLOR = Color::RGBA(255, 255, 50, 0);
-
-            let surface = font.render("push 'N' for new game").blended(TEXT_COLOR).unwrap();
-            let mut texture = renderer.create_texture_from_surface(&surface).unwrap();
-            let TextureQuery { width, height, .. } = texture.query();
-            renderer.copy(&mut texture, None, Some(Rect::new(140, 180, width, height))).unwrap();
-
-            let surface = font.render("GAMEOVER").blended(TEXT_COLOR).unwrap();
-            let mut texture = renderer.create_texture_from_surface(&surface).unwrap();
-            let TextureQuery { width, height, .. } = texture.query();
-            renderer.copy(&mut texture, None, Some(Rect::new(140, 140, width, height))).unwrap();
-
-            let surface = font.render(format!("your score: {}", self.score).as_ref()).blended(TEXT_COLOR).unwrap();
-            let mut texture = renderer.create_texture_from_surface(&surface).unwrap();
-            let TextureQuery { width, height, .. } = texture.query();
-            renderer.copy(&mut texture, None, Some(Rect::new(140, 220, width, height))).unwrap();
-
-        } else {
-            let surface = font.render(format!("SCORE: {}", self.score).as_ref())
-                .blended(Color::RGBA(255, 255, 255, 0)).unwrap();
-
-            let mut texture = renderer.create_texture_from_surface(&surface).unwrap();
-            let TextureQuery { width, height, .. } = texture.query();
-
-            renderer.copy(&mut texture, None, Some(Rect::new(self.area.width() as i32 - 10 - width as i32, 10, width, height))).unwrap();
-
-            if self.show_fps {
-                let surface = font.render(format!("FPS: {}", self.fps).as_ref())
-                    .blended(Color::RGBA(255, 255, 255, 0)).unwrap();
-                let mut texture = renderer.create_texture_from_surface(&surface).unwrap();
-                let TextureQuery { width, height, .. } = texture.query();
-
-                renderer.copy(&mut texture, None, Some(Rect::new(20, 10, width, height))).unwrap();
-            }
-        }
-
     }
 
     fn move_snake(&mut self, time: u32) {
@@ -207,9 +148,9 @@ impl SnakeGame {
         if self.food == head {
             self.body.push(last);
             self.score += (1000.0 / (time - self.food_generated_time) as f32 * 100.0) as u32;
-            self.create_food(time);
+            self.food_generated_time = time;
+            self.food = self.create_food();
         }
-
     }
 
     fn change_direction(&mut self, direction: Direction) {
@@ -218,8 +159,70 @@ impl SnakeGame {
         }
         self.direction = direction;
     }
+}
 
-    fn rect_at(&self, x: u32, y: u32) -> Rect {
+struct SDLRenderer<'a> {
+    renderer: &'a mut Renderer<'a>,
+    font: &'a Font<'a>
+}
+
+impl<'a> SDLRenderer<'a> {
+    fn new<'x>(renderer: &'x mut Renderer<'x>, font: &'x Font<'x>) -> SDLRenderer<'x> {
+        SDLRenderer {
+            renderer: renderer,
+            font: font
+        }
+    }
+
+    fn render(&mut self, snakeGame: &SnakeGame) {
+        self.render_text(snakeGame);
+
+        self.renderer.set_draw_color(BACKGROUND_COLOR);
+        self.renderer.fill_rect(snakeGame.area).unwrap();
+
+        if snakeGame.state == State::GAMEOVER {
+            return
+        }
+
+        for point in &snakeGame.body {
+            self.renderer.set_draw_color(SNAKE_COLOR);
+            self.renderer.fill_rect(SDLRenderer::rect_at(point.x, point.y)).unwrap();
+        }
+
+        self.renderer.set_draw_color(FOOD_COLOR);
+        self.renderer.fill_rect(SDLRenderer::rect_at(snakeGame.food.x, snakeGame.food.y)).unwrap();
+
+        self.renderer.present();
+    }
+
+    fn render_text(&mut self, snakeGame: &SnakeGame) {
+        if snakeGame.state == State::GAMEOVER {
+            self.render_text_at("push 'N' for new game", GAMEOVER_TEXT_COLOR, 140, 180);
+            self.render_text_at("GAMEOVER", GAMEOVER_TEXT_COLOR, 140, 140);
+            self.render_text_at(format!("your score: {}", snakeGame.score).as_ref(), GAMEOVER_TEXT_COLOR, 140, 220);
+        } else {
+            self.render_text_align_right(format!("SCORE: {}", snakeGame.score).as_ref(), Color::RGBA(255, 255, 255, 0), 10, 10, snakeGame);
+            if snakeGame.show_fps {
+                self.render_text_at(format!("FPS: {}", snakeGame.fps).as_ref(), Color::RGB(255, 255, 255), 10, 10);
+            }
+        }
+    }
+
+    fn render_text_align_right(&mut self, text: &str, color: Color, x: i32, y: i32, snakeGame: &SnakeGame) {
+        let surface = self.font.render(text).blended(color).unwrap();
+        let mut texture = self.renderer.create_texture_from_surface(&surface).unwrap();
+        let TextureQuery { width, height, .. } = texture.query();
+        self.renderer.copy(&mut texture, None, Some(Rect::new(snakeGame.area.width() as i32 - x - width as i32, y, width, height))).unwrap();
+    }
+
+    fn render_text_at(&mut self, text: &str, color: Color, x: i32, y: i32) {
+        let surface = self.font.render(text).blended(color).unwrap();
+        let mut texture = self.renderer.create_texture_from_surface(&surface).unwrap();
+        let TextureQuery { width, height, .. } = texture.query();
+        self.renderer.copy(&mut texture, None, Some(Rect::new(x, y, width, height))).unwrap();
+    }
+
+    fn rect_at(x: u32, y: u32) -> Rect {
         Rect::new((x * CELL_SIZE) as i32, (y * CELL_SIZE) as i32, CELL_SIZE, CELL_SIZE)
     }
 }
@@ -237,8 +240,10 @@ fn main() {
 
     let mut snake = SnakeGame::new(SCREEN_WIDTH, SCREEN_HEIGHT, 10, timer.ticks());
 
-    let mut renderer = window.renderer().build().unwrap();
-    let font = ttf_context.load_font("/Users/denis/dev/git/rust-prj/src/font.TTF", 30).unwrap();
+    let font = ttf_context.load_font("./font.TTF", 30).unwrap();
+    let mut sdl_renderer = window.renderer().build().unwrap();
+
+    let mut game_renderer = SDLRenderer::new(&mut sdl_renderer, &font);
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -277,11 +282,9 @@ fn main() {
             }
         }
 
-        snake.render(&mut renderer);
-        snake.render_text(&mut renderer, &font);
-        renderer.present();
+        game_renderer.render(&snake);
 
-        //        std::thread::sleep(Duration::from_millis(100));
+        //        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 }
 
