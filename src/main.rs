@@ -158,14 +158,13 @@ impl SnakeGame {
 struct SDLRenderer<'a, 'b: 'a> {
     renderer: &'a mut Renderer<'b>,
     font: &'a Font<'b>,
-    width: u32,
-    height: u32
+    width: u32
 }
 
 impl<'a, 'b> SDLRenderer<'a, 'b> {
     fn render(&mut self, snake_game: &SnakeGame) {
         self.renderer.set_draw_color(BACKGROUND_COLOR);
-        self.renderer.fill_rect(Rect::new(0, 0, self.width, self.height)).unwrap();
+        self.renderer.clear();
 
         self.render_text(snake_game);
 
@@ -224,8 +223,8 @@ fn main() {
         .build()
         .unwrap();
 
-    let x_cells_max = SCREEN_WIDTH / CELL_SIZE;
-    let y_cells_max = SCREEN_HEIGHT / CELL_SIZE;
+    let x_cells_max = SCREEN_WIDTH / CELL_SIZE - 1;
+    let y_cells_max = SCREEN_HEIGHT / CELL_SIZE - 1;
 
     let mut snake = SnakeGame::new(x_cells_max, y_cells_max, 10, timer.ticks());
 
@@ -235,8 +234,7 @@ fn main() {
     let mut game_renderer = SDLRenderer {
         renderer: &mut sdl_renderer,
         font: &font,
-        width: SCREEN_WIDTH,
-        height: SCREEN_HEIGHT
+        width: SCREEN_WIDTH
     };
 
     let mut event_pump = sdl_context.event_pump().unwrap();
