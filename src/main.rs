@@ -183,7 +183,7 @@ impl<'a, 'b> SDLRenderer<'a, 'b> {
 
     fn render_text(&mut self, snake_game: &SnakeGame) {
         if snake_game.state == State::GAMEOVER {
-            self.render_text_at("push 'N' for new game", GAMEOVER_TEXT_COLOR, 140, 180);
+            self.render_text_at("push 'N' for a new game", GAMEOVER_TEXT_COLOR, 140, 180);
             self.render_text_at("GAMEOVER", GAMEOVER_TEXT_COLOR, 140, 140);
             self.render_text_at(format!("your score: {}", snake_game.score).as_ref(), GAMEOVER_TEXT_COLOR, 140, 220);
         } else {
@@ -224,7 +224,10 @@ fn main() {
         .build()
         .unwrap();
 
-    let mut snake = SnakeGame::new(SCREEN_WIDTH / CELL_SIZE, SCREEN_HEIGHT / CELL_SIZE, 10, timer.ticks());
+    let x_cells_max = SCREEN_WIDTH / CELL_SIZE;
+    let y_cells_max = SCREEN_HEIGHT / CELL_SIZE;
+
+    let mut snake = SnakeGame::new(x_cells_max, y_cells_max, 10, timer.ticks());
 
     let font = ttf_context.load_font("./font.TTF", 30).unwrap();
     let mut sdl_renderer = window.renderer().build().unwrap();
@@ -262,7 +265,7 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'mainLoop,
                 Event::KeyDown { keycode: Some(Keycode::N), .. } =>
-                    snake = SnakeGame::new(SCREEN_WIDTH, SCREEN_HEIGHT, 10, timer.ticks()),
+                    snake = SnakeGame::new(x_cells_max, y_cells_max, 10, timer.ticks()),
                 Event::KeyDown { keycode: Some(Keycode::F), .. } => snake.show_fps = true,
                 Event::KeyDown { keycode: Some(Keycode::Up), .. } => snake.change_direction(Direction::UP),
                 Event::KeyDown { keycode: Some(Keycode::Down), .. } => snake.change_direction(Direction::DOWN),
